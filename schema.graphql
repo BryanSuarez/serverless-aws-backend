@@ -1,0 +1,24 @@
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+type Day{
+    id: ID!
+    name: String!
+}
+
+type Food {
+    id: ID! 
+    title: String!
+    content: String!
+}
+
+type Query{
+    getFoodByDayId(day: ID): Food
+}
+
+
+type Mutation{
+    addFood(id: ID!, title: String! , content: String!): Food
+}

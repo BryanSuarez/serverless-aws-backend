@@ -1,0 +1,100 @@
+service: api-food
+
+plugins:
+    - serverless-appsync-plugin
+    - serverless-pseudo-parameters
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  deploymentBucket:
+    name: bs.serverless.${opt:stage, 'dev'}
+
+functions:
+  hello:
+    handler: handler.hello
+
+custom:
+  accountId: 235803811716
+  appSync:
+    id: "${self:provider.stage}-api-foods"
+    name: "${self:provider.stage}-api-foods"
+    authenticationType: API_KEY
+    schema: "schema.graphql"
+    serviceRole: "AppSyncServiceRole"
+    logConfig:
+      #loggingRoleArn: { Fn::GetAtt: [AppSyncLoggingServiceRole, Arn] } # Where AppSyncLoggingServiceRole is a role with CloudWatch Logs write access
+      level: ERROR # Logging Level: NONE | ERROR | ALL
+      # para resolvers
+      # mappingTemplatesLocation:
+    mappingTemplates:
+      - dataSource: awsDynamoDataSource
+        type: Mutation
+        field: addFood
+        request: "createFood-request-mapping-template.vtl"
+        response: "createFood-response-mapping-template.vtl"
+    dataSources:
+    - type: AMAZON_DYNAMODB
+      name: awsDynamoDataSource
+      description: 'foods table'
+      config:
+        tableName: "${self:provider.stage}-${self:service}_foods" 
+        serviceRoleArn: { Fn::GetAtt: [AppSyncDynamoDBServiceRole, Arn] }
+resources:
+  Resources:
+    foodsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: "${self:provider.stage}-${self:service}_foods" 
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        # Set the capacity to auto-scale
+        BillingMode: PAY_PER_REQUEST
+
+    daysTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: "${self:provider.stage}-${self:service}_days"
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        # Set the capacity to auto-scale
+        BillingMode: PAY_PER_REQUEST
+    
+        #crear rol 
+    AppSyncDynamoDBServiceRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: "Dynamo-${self:custom.appSync.serviceRole}-${self:provider.stage}"
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Principal:
+                Service:
+                  - "appsync.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          -
+            PolicyName: "Dynamo-${self:custom.appSync.serviceRole}-Policy-${self:provider.stage}"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "dynamodb:*"
+                  Resource:
+                    - "arn:aws:dynamodb:${self:provider.region}:${self:custom.accountId}:table/${self:provider.stage}-${self:service}_foods"
+
