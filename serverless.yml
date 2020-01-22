@@ -17,7 +17,7 @@ functions:
     handler: handler.hello
 
 custom:
-  accountId: 235803811716
+  accountId: xxx
   appSync:
     id: "${self:provider.stage}-api-foods"
     name: "${self:provider.stage}-api-foods"
